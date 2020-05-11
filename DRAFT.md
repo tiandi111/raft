@@ -1,6 +1,41 @@
 Design Draft
 ---
 
+## RPCs
+- AppendEntries RPC
+```
+func (term, success)  AppendEntries(term, leaderID, prevLogIndex, 
+    prevLogTerm, entries[], leaderCommit):
+    
+    // 1. stale call
+    if term < currentTerm:
+        return (currentTerm, false)    
+        
+    // 2. lack of previous logs, cannot apply
+    if localLogs.len <= prevLogIndex:
+        return (currentTerm, false)
+        
+    // 3. find inconsistent entry, delete entries followed
+    int startFrom
+    for i from prevLogIndex+1 to min(localLogs.len-1, entries.len):
+        if localLogs[i].term != entries[i-prevLogIndex-1].term:
+            startFrom = i-prevLogIndex-1
+            delete(localLogs, i, localLogs.len)
+            break
+          
+    // 4. append any new entries not already in the log  
+    for i in (startFrom, localLogs.len):
+        append(localLogs, entries[i])
+        
+    // 5. set commitIndex
+    // Here we set the minimum of leaderCommit and localLogs.len-1 
+    // because we don't know yet if this AppendEntris call will 
+    // succeed in the mojority of the nodes
+    if laderCommit > commitIndex:
+        commitIndex = min(leaderCommit, localLogs.len-1)    
+
+```
+
 ## Part1: Leader Electrion
 ### Leader
 - Heartbeat
@@ -19,9 +54,10 @@ func heartbeat() {
 func heartbeat_daemon():
     while:
     	if heartbeat_signal = recv(); hearbeat_signal != null :
-    	    last_heartbeat = heartbeat_signal
-    	    last_heartbeat.time = time.now()
-    	    term = heartbeat_signal.term
+    	    if heartbeat_signal.term >= term:
+                last_heartbeat = heartbeat_signal
+                last_heartbeat.time = time.now()
+                term = heartbeat_signal.term
 ```
 - Heartbeat Monitor
 ```
@@ -35,17 +71,16 @@ func heartbeat_monitor():
 ```
 - Request Vote Handler
 ```
-func handle_request_vote():
+func boolean handle_request_vote():
 	while:
 	    if vote_request = recv():
-	        if vote_request.term < term || (has_voted && vote_request.term<vote_term):
-	            continue
+	        if vote_request.term < term || (has_voted && vote_request.term >= term):
+	            return false
 	        else:
 	            server = vote_request.server
-	            vote(server)
 	            has_voted = true
 	            vote_term = vote_request.term
-	            
+	            return true
 ```
 
 ### CANDIDATE
