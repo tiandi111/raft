@@ -328,7 +328,7 @@ func (c *raftClient) RequestVote(ctx context.Context, in *RequestVoteRequest, op
 	return out, nil
 }
 
-// RaftServer is the server API for Raft service.
+// RaftServer is the raft API for Raft service.
 type RaftServer interface {
 	AppendEntries(context.Context, *AppendEntriesRequest) (*AppendEntriesResponse, error)
 	RequestVote(context.Context, *RequestVoteRequest) (*RequestVoteResponse, error)
