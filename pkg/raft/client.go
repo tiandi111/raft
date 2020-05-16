@@ -12,8 +12,8 @@ import (
 func (n *Node) InitClient() error {
 	f := func(id int32, addr string) (*Client, error) {
 		var ferr error
-		for i := 0; i < 3; i++ {
-			conn, err := grpc.Dial(addr)
+		for i := 0; ; i++ {
+			conn, err := grpc.Dial(addr, grpc.WithInsecure())
 			if err != nil {
 				log.Printf("init client%d failed, try no.%d, err: %s", id, i, err)
 				ferr = err
@@ -36,8 +36,6 @@ func (n *Node) InitClient() error {
 }
 
 func (n *Node) LeaderAppendEntries() {
-	n.Mux.Lock()
-	defer n.Mux.Unlock()
 	if n.State != LEADER {
 		log.Printf("abort LeaderAppendEntries, i'm not leader anymore")
 		return
@@ -58,10 +56,8 @@ func (n *Node) LeaderAppendEntries() {
 func (n *Node) AppendEntriesToSingle(id int32, req *raft.AppendEntriesRequest) {
 	tries := 0
 	for {
-		n.Mux.Lock()
 		if n.State != LEADER {
 			log.Printf("abort LeaderAppendEntriesToSingle, i'm not leader anymore")
-			n.Mux.Unlock()
 			return
 		}
 		log.Printf("AppendEntries to %d, try no.%d", id, tries)
@@ -69,10 +65,8 @@ func (n *Node) AppendEntriesToSingle(id int32, req *raft.AppendEntriesRequest) {
 		if err != nil {
 			log.Printf("AppendEntries to %d, try no.%d, err: %s", id, tries, err)
 		}
-		n.Mux.Lock()
 		if resp.GetSuccess() {
 			log.Printf("AppendEntries to %d, try no.%d, success", id, tries)
-			n.Mux.Unlock()
 			return
 		} else {
 			log.Printf("AppendEntries to %d, try no.%d, fail", id, tries)
@@ -81,50 +75,45 @@ func (n *Node) AppendEntriesToSingle(id int32, req *raft.AppendEntriesRequest) {
 					id, tries, resp.GetTerm(), n.CurrentTerm)
 				n.State = FOLLOWER
 				n.CurrentTerm = resp.GetTerm()
-				n.LatestHeartbeatAt = time.Now()
-				n.LatestHeartbeatFrom = id
-				n.Mux.Unlock()
 				return
 			}
 		}
-		n.Mux.Unlock()
 		tries++
 	}
 }
 
 // todo: this part
 func (n *Node) BeginElection() {
-	n.Mux.Lock()
 	// vote to myself
-	n.ReceivedVotes = 1
-	n.CandidateRequestVote(n.CurrentTerm)
+	n.StoreReceivedVotes(1)
+
+	n.RLockStatus()
 	term := n.CurrentTerm
-	defer n.Mux.Unlock()
+	n.RUnlockStatus()
+
+	n.CandidateRequestVote(term)
+
 	for {
-		n.Mux.Lock()
 		if n.State != CANDIDATE || n.CurrentTerm != term {
-			n.Mux.Unlock()
 			return
 		}
-		if n.ReceivedVotes >= (len(n.Clients)+1)/2+1 {
+
+		//todo: use condition
+		if n.ReceivedVotes >= int32((len(n.Clients)+1)/2+1) {
 			n.State = LEADER
 			n.ReceivedVotes = 0
 			n.LeaderAppendEntries()
-			n.Mux.Unlock()
 			return
 		}
-		n.Mux.Unlock()
-		time.Sleep(20 * time.Millisecond)
+		time.Sleep(500 * time.Millisecond)
 	}
 }
 
 func (n *Node) CandidateRequestVote(term int32) {
-	n.Mux.Lock()
 	if n.State != CANDIDATE || n.CurrentTerm != term {
 		log.Printf("abort CandidateRequestVote, inconsistent state, state %d, CurentTerm %d, expected term %d",
 			n.State, n.CurrentTerm, term)
 		n.ReceivedVotes = 0
-		n.Mux.Unlock()
 		return
 	}
 	req := &raft.RequestVoteRequest{
@@ -142,25 +131,20 @@ func (n *Node) CandidateRequestVote(term int32) {
 func (n *Node) RequestVoteToSingle(id, term int32, req *raft.RequestVoteRequest) {
 	tries := 0
 	for {
-		n.Mux.Lock()
 		if n.State != CANDIDATE || n.CurrentTerm != term {
 			log.Printf("abort CandidateRequestVote, inconsistent state, state %d, CurentTerm %d, expected term %d",
 				n.State, n.CurrentTerm, term)
 			n.ReceivedVotes = 0
-			n.Mux.Unlock()
 			return
 		}
-		n.Mux.Unlock()
 		log.Printf("RequestVoteToSingle to %d, try no.%d", id, tries)
 		resp, err := n.Clients[id].C.RequestVote(context.TODO(), req)
 		if err != nil {
 			log.Printf("RequestVoteToSingle to %d, try no.%d, err: %s", id, tries, err)
 		}
-		n.Mux.Lock()
 		if resp.GetVoteGranted() {
 			log.Printf("RequestVoteToSingle to %d, try no.%d, vote granted", id, tries)
 			n.ReceivedVotes++
-			n.Mux.Unlock()
 			return
 		} else {
 			log.Printf("RequestVoteToSingle to %d, try no.%d, fail", id, tries)
@@ -169,13 +153,9 @@ func (n *Node) RequestVoteToSingle(id, term int32, req *raft.RequestVoteRequest)
 					id, tries, resp.GetTerm(), n.CurrentTerm)
 				n.State = FOLLOWER
 				n.CurrentTerm = resp.GetTerm()
-				n.LatestHeartbeatAt = time.Now()
-				n.LatestHeartbeatFrom = id
-				n.Mux.Unlock()
 				return
 			}
 		}
-		n.Mux.Unlock()
 		tries++
 	}
 }

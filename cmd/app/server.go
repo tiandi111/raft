@@ -33,7 +33,7 @@ func init() {
 
 	Command.PersistentFlags().StringVar(&cfgfile, "config", `E:\go\src\github.com\tiandi111\raft\config\config.yaml`, "init config")
 
-	Command.PersistentFlags().Int32Var(&nodeId, "id", -1, "assign node id")
+	Command.PersistentFlags().Int32Var(&nodeId, "id", 1, "assign node id")
 }
 
 func initconfig() {
@@ -65,12 +65,6 @@ func initconfig() {
 			cfg.HeartbeatInterval = time.Duration(ncfg.HeartbeatInterval)
 			cfg.HeartbeatCheckInterval = time.Duration(ncfg.HeartbeatCheckInterval)
 			cfg.MaxElectionTimeout = time.Duration(ncfg.MaxElectionTimeout)
-			log.Printf("node config:\n"+
-				"id:[%d]\n"+
-				"addr:[%s]\n"+
-				"heartbeat_interval:[%d]\n"+
-				"heartbeat_check_interval:[%d]\n"+
-				"max_election_timeout:[%d]", nodeId, cfg.Addr, cfg.HeartbeatInterval, cfg.HeartbeatCheckInterval, cfg.MaxElectionTimeout)
 		} else {
 			cfg.Others[ncfg.ID] = ncfg.Addr
 		}
