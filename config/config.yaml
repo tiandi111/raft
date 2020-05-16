@@ -1,0 +1,17 @@
+nodes:
+  -
+    id: 1
+    addr: "localhost:8001"
+  -
+    id: 2
+    addr: "localhost:8002"
+  -
+    id: 3
+    addr: "localhost:8003"
+  -
+    id: 4
+    addr: "localhost:8004"
+  -
+    id: 5
+    addr: "localhost:8005"
+
