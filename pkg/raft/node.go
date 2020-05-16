@@ -1,8 +1,8 @@
 package raft
 
 import (
-	"github.com/grpc/grpc-go"
 	"github.com/tiandi111/raft/pkg/rpc/raft"
+	"google.golang.org/grpc"
 	"math/rand"
 	"sync"
 	"time"
@@ -15,9 +15,12 @@ const (
 )
 
 type Config struct {
-	ID     int32
-	Addr   string
-	Others map[int32]string
+	ID                     int32
+	Addr                   string
+	HeartbeatInterval      time.Duration
+	HeartbeatCheckInterval time.Duration
+	MaxElectionTimeout     time.Duration
+	Others                 map[int32]string
 }
 
 type Node struct {
@@ -26,8 +29,9 @@ type Node struct {
 	State                  int
 	VotedFor               int32
 	ReceivedVotes          int
+	HeartbeatInterval      time.Duration
 	HeartbeatCheckInterval time.Duration
-	ElectionTimeOut        time.Duration
+	ElectionTimeout        time.Duration
 	LatestHeartbeatAt      time.Time
 	LatestHeartbeatFrom    int32
 	Config                 *Config
@@ -51,10 +55,20 @@ func NewNode(config *Config) *Node {
 		State:                  FOLLOWER,
 		VotedFor:               -1,
 		ReceivedVotes:          0,
-		HeartbeatCheckInterval: 2 * time.Second,
-		ElectionTimeOut:        time.Duration(rand.Intn(10)+3) * time.Second,
+		HeartbeatInterval:      config.HeartbeatInterval * time.Millisecond,
+		HeartbeatCheckInterval: config.HeartbeatCheckInterval * time.Millisecond,
+		ElectionTimeout:        RandomElectionTimeout(config) * time.Millisecond,
 		LatestHeartbeatAt:      time.Now(),
 		LatestHeartbeatFrom:    config.ID,
+		Config:                 config,
 		Mux:                    &sync.Mutex{},
 	}
+}
+
+func RandomElectionTimeout(config *Config) time.Duration {
+	et := rand.Int63n(int64(config.MaxElectionTimeout))
+	if et < int64(3*config.HeartbeatInterval) {
+		et = 3 * int64(config.HeartbeatInterval)
+	}
+	return time.Duration(et)
 }

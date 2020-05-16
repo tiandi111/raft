@@ -73,7 +73,7 @@ func (n *Node) HeartbeatMonitor() {
 	log.Printf("start HeartbeatMonitor, check interval %d s", n.HeartbeatCheckInterval/1e9)
 	for range t.C {
 		n.Mux.Lock()
-		if n.State != LEADER && n.LatestHeartbeatAt.Add(n.ElectionTimeOut).After(time.Now()) {
+		if n.State != LEADER && n.LatestHeartbeatAt.Add(n.ElectionTimeout).After(time.Now()) {
 			n.State = CANDIDATE
 			n.CurrentTerm++
 			log.Printf("HeartbeatMonitor election timeout, begin new election phase, term %d",

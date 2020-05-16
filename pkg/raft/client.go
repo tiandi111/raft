@@ -3,8 +3,8 @@ package raft
 import (
 	"context"
 	"fmt"
-	"github.com/grpc/grpc-go"
 	"github.com/tiandi111/raft/pkg/rpc/raft"
+	"google.golang.org/grpc"
 	"log"
 	"time"
 )
@@ -15,14 +15,14 @@ func (n *Node) InitClient() error {
 		for i := 0; i < 3; i++ {
 			conn, err := grpc.Dial(addr)
 			if err != nil {
-				log.Printf("init client%d failed, try no.%d, err: %s", i, err)
+				log.Printf("init client%d failed, try no.%d, err: %s", id, i, err)
 				ferr = err
 				time.Sleep(2 * time.Second)
 				continue
 			}
 			return &Client{C: raft.NewRaftClient(conn), conn: conn}, nil
 		}
-		return nil, fmt.Errorf("InitClient to %d failed", ferr)
+		return nil, fmt.Errorf("InitClient to node%d failed, err: %s", id, ferr)
 	}
 	for id, addr := range n.Config.Others {
 		c, err := f(id, addr)

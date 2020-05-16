@@ -11,10 +11,11 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 )
 
 var (
-	cfg     raft.Config
+	cfg     *raft.Config
 	node    *raft.Node
 	cfgfile string
 	nodeId  int32
@@ -30,9 +31,9 @@ var (
 func init() {
 	cobra.OnInitialize(initconfig)
 
-	cmd.PersistentFlags().StringVar(&cfgfile, "config", "", "init config")
+	Command.PersistentFlags().StringVar(&cfgfile, "config", `E:\go\src\github.com\tiandi111\raft\config\config.yaml`, "init config")
 
-	cmd.PersistentFlags().Int32Var(&nodeId, "node_id", -1, "assign node id")
+	Command.PersistentFlags().Int32Var(&nodeId, "id", -1, "assign node id")
 }
 
 func initconfig() {
@@ -40,27 +41,36 @@ func initconfig() {
 		log.Printf("empty config file path, exit 1")
 		os.Exit(1)
 	}
-	if nodeId < 0 {
-		log.Printf("invalid node id, exit 1")
+	if nodeId <= 0 {
+		log.Printf("invalid node id %d, exit 1", nodeId)
 		os.Exit(1)
 	}
 
-	nlist, err := config.ParseConfig(cfgfile)
+	nlcfg, err := config.ParseConfig(cfgfile)
 	if err != nil {
 		panic(err)
 	}
 
-	cfg := &raft.Config{
+	cfg = &raft.Config{
 		ID:     int32(nodeId),
 		Others: make(map[int32]string),
 	}
 
-	for _, ncfg := range nlist {
+	for _, ncfg := range nlcfg {
 		if ncfg.ID == nodeId {
 			if ncfg.Addr == "" {
 				panic("empty node address")
 			}
 			cfg.Addr = ncfg.Addr
+			cfg.HeartbeatInterval = time.Duration(ncfg.HeartbeatInterval)
+			cfg.HeartbeatCheckInterval = time.Duration(ncfg.HeartbeatCheckInterval)
+			cfg.MaxElectionTimeout = time.Duration(ncfg.MaxElectionTimeout)
+			log.Printf("node config:\n"+
+				"id:[%d]\n"+
+				"addr:[%s]\n"+
+				"heartbeat_interval:[%d]\n"+
+				"heartbeat_check_interval:[%d]\n"+
+				"max_election_timeout:[%d]", nodeId, cfg.Addr, cfg.HeartbeatInterval, cfg.HeartbeatCheckInterval, cfg.MaxElectionTimeout)
 		} else {
 			cfg.Others[ncfg.ID] = ncfg.Addr
 		}
@@ -71,30 +81,30 @@ func run() {
 	defer func() {
 	}()
 
-	node = raft.NewNode(&cfg)
+	node = raft.NewNode(cfg)
 
-	err := node.InitClient()
-	if err != nil {
-		panic(err)
-	}
-
+	// init server
+	errc := make(chan error, 1)
 	lis, err := net.Listen("tcp", node.Config.Addr)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
 	s := grpc.NewServer()
 	graft.RegisterRaftServer(s, node)
-
-	sigc := make(chan os.Signal, 1)
-	signal.Notify(sigc, syscall.SIGTERM)
-
-	errc := make(chan error, 1)
-
 	go func() {
 		if err := s.Serve(lis); err != nil {
 			errc <- err
 		}
 	}()
+
+	// init client
+	err = node.InitClient()
+	if err != nil {
+		panic(err)
+	}
+
+	sigc := make(chan os.Signal, 1)
+	signal.Notify(sigc, syscall.SIGTERM)
 
 	go node.HeartbeatMonitor()
 
