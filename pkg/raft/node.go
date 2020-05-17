@@ -26,9 +26,14 @@ type Config struct {
 }
 
 type Status struct {
-	CurrentTerm int32
-	State       int
-	mux         *sync.RWMutex
+	CurrentTerm   int32
+	State         int32
+	VotedFor      int32
+	ReceivedVotes int32
+	// todo: we use a channel to notify the acquirement of leadership
+	InElection            bool
+	ElectionResultChannel chan bool
+	mux                   *sync.Mutex
 }
 
 func (s *Status) LockStatus() {
@@ -39,12 +44,31 @@ func (s *Status) UnlockStatus() {
 	s.mux.Unlock()
 }
 
-func (s *Status) RLockStatus() {
-	s.mux.RLock()
+// todo: abstract state transition to explicit function call
+// - PromoteToCandidate
+// 		case1: follower -> candidate, start new election term
+//		case2: candidate -> candidate, start new election term
+// - PromoteToLeader
+// 		case1: candidate -> leader, receive majority of votes
+// - DemoteToFollower
+//		case1: candidate -> follower, discover current leader or new term
+// 		case2: leader -> follower, discover new term
+
+// always call EnterNewTerm to that we won't forget to update
+// votedFor and receivedVotes
+func (s *Status) EnterNewTerm(term, state, votedFor, receivedVotes int32) {
+	s.CurrentTerm = term
+	s.State = state
+	s.VotedFor = votedFor
+	s.ReceivedVotes = receivedVotes
 }
 
-func (s *Status) RUnlockStatus() {
-	s.mux.RUnlock()
+// always call TransitTo so that we won't forget to update
+// votedFor and receivedVotes
+func (s *Status) TransitTo(state, votedFor, receivedVotes int32) {
+	s.State = state
+	s.VotedFor = votedFor
+	s.ReceivedVotes = receivedVotes
 }
 
 type Heartbeat struct {
@@ -71,8 +95,6 @@ func (h *Heartbeat) RUnlockHeartbeat() {
 
 type Node struct {
 	ID                     int32
-	VotedFor               int32
-	ReceivedVotes          int32
 	HeartbeatInterval      time.Duration
 	HeartbeatCheckInterval time.Duration
 	ElectionTimeout        time.Duration
@@ -80,6 +102,35 @@ type Node struct {
 	*Heartbeat
 	Config  *Config
 	Clients map[int32]*Client
+}
+
+// similar to compare and swap
+func (n *Node) EnsureAndDo(term, state int32, fs ...func(node *Node)) bool {
+	n.LockStatus()
+	defer n.UnlockStatus()
+
+	if n.CurrentTerm == term && n.State == state {
+		for _, f := range fs {
+			f(n)
+		}
+		return true
+	}
+
+	return false
+}
+
+func (n *Node) EnsureStateAndDo(state int32, fs ...func(*Node)) bool {
+	n.LockStatus()
+	defer n.UnlockStatus()
+
+	if n.State == state {
+		for _, f := range fs {
+			f(n)
+		}
+		return true
+	}
+
+	return false
 }
 
 func (n *Node) LoadVotedFor() int32 {
@@ -115,12 +166,13 @@ func NewNode(config *Config) *Node {
 	node := &Node{
 		ID: config.ID,
 		Status: &Status{
-			CurrentTerm: 0,
-			State:       FOLLOWER,
-			mux:         &sync.RWMutex{},
+			CurrentTerm:           0,
+			State:                 FOLLOWER,
+			VotedFor:              -1,
+			ReceivedVotes:         0,
+			ElectionResultChannel: make(chan bool, 1),
+			mux:                   &sync.Mutex{},
 		},
-		VotedFor:               -1,
-		ReceivedVotes:          0,
 		HeartbeatInterval:      config.HeartbeatInterval * time.Millisecond,
 		HeartbeatCheckInterval: config.HeartbeatCheckInterval * time.Millisecond,
 		ElectionTimeout:        RandomElectionTimeout(config) * time.Millisecond,

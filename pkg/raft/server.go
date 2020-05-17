@@ -12,6 +12,7 @@ func (n *Node) AppendEntries(ctx context.Context, req *raft.AppendEntriesRequest
 
 	n.LockStatus()
 	defer n.UnlockStatus()
+
 	if req.GetTerm() < n.CurrentTerm {
 		log.Printf("AppendEntries from %d, term %d is staler than me, term %d", req.GetLeaderId(),
 			req.GetTerm(), n.CurrentTerm)
@@ -27,7 +28,7 @@ func (n *Node) AppendEntries(ctx context.Context, req *raft.AppendEntriesRequest
 	defer n.RUnlockHeartbeat()
 	n.LatestHeartbeatAt = time.Now()
 	n.LatestHeartbeatFrom = req.GetLeaderId()
-	n.State = FOLLOWER
+	n.TransitTo(FOLLOWER, 0, 0)
 
 	return &raft.AppendEntriesResponse{Term: n.CurrentTerm, Success: true}, nil
 }
@@ -54,8 +55,8 @@ func (n *Node) RequestVote(ctx context.Context, req *raft.RequestVoteRequest) (*
 
 	if n.State == FOLLOWER {
 		// 没vote过或者vote给了同样的candidate，则继续vote
-		if n.LoadVotedFor() <= 0 || n.LoadVotedFor() == req.GetCandidateId() {
-			n.StoreVotedFor(req.GetCandidateId())
+		if n.VotedFor <= 0 || n.VotedFor == req.GetCandidateId() {
+			n.TransitTo(n.State, req.GetCandidateId(), 0)
 			log.Printf("RequestVote from %d, I haven't voted for anyone, so vote for it",
 				req.GetCandidateId())
 			return &raft.RequestVoteResponse{Term: n.CurrentTerm, VoteGranted: true}, nil
@@ -67,8 +68,7 @@ func (n *Node) RequestVote(ctx context.Context, req *raft.RequestVoteRequest) (*
 	} else {
 		log.Printf("RequestVote from %d, it has larger term %d than mine %d, I'm FOLLOWER now",
 			req.GetCandidateId(), req.GetTerm(), n.CurrentTerm)
-		n.State = FOLLOWER
-		n.StoreVotedFor(req.CandidateId)
+		n.TransitTo(FOLLOWER, req.GetCandidateId(), 0)
 	}
 
 	return &raft.RequestVoteResponse{Term: n.CurrentTerm, VoteGranted: false}, nil
@@ -77,13 +77,14 @@ func (n *Node) RequestVote(ctx context.Context, req *raft.RequestVoteRequest) (*
 func (n *Node) HeartbeatMonitor() {
 	t := time.NewTicker(n.HeartbeatCheckInterval)
 	log.Printf("start HeartbeatMonitor, check interval %ds", n.HeartbeatCheckInterval/1e9)
+
 	for range t.C {
 		n.LockStatus()
 		n.RLockHeartbeat()
 
 		if n.State != LEADER && n.LatestHeartbeatAt.Add(n.ElectionTimeout).After(time.Now()) {
-			n.State = CANDIDATE
-			n.CurrentTerm++
+			newTerm := n.CurrentTerm + 1
+			n.EnterNewTerm(newTerm, CANDIDATE, 0, 0)
 
 			log.Printf("HeartbeatMonitor election timeout, begin new election phase, term %d",
 				n.CurrentTerm)
@@ -91,7 +92,10 @@ func (n *Node) HeartbeatMonitor() {
 			n.UnlockStatus()
 			n.RUnlockHeartbeat()
 
-			n.BeginElection()
+			n.BeginElection(newTerm)
 		}
+
+		n.UnlockStatus()
+		n.RUnlockHeartbeat()
 	}
 }

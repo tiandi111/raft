@@ -36,27 +36,28 @@ func (n *Node) InitClient() error {
 }
 
 func (n *Node) LeaderAppendEntries() {
-	if n.State != LEADER {
+	f := func(node *Node) {
+		req := &raft.AppendEntriesRequest{
+			Term:         node.CurrentTerm,
+			LeaderId:     node.ID,
+			PrevLogIndex: 0,
+			PrevLogTerm:  0,
+			LeaderCommit: 0,
+		}
+		for id := range node.Clients {
+			log.Printf("LeaderAppendEntries to %d", id)
+			go node.AppendEntriesToSingle(id, req)
+		}
+	}
+	if !n.EnsureStateAndDo(LEADER, f) {
 		log.Printf("abort LeaderAppendEntries, i'm not leader anymore")
-		return
-	}
-	req := &raft.AppendEntriesRequest{
-		Term:         n.CurrentTerm,
-		LeaderId:     n.ID,
-		PrevLogIndex: 0,
-		PrevLogTerm:  0,
-		LeaderCommit: 0,
-	}
-	for id := range n.Clients {
-		log.Printf("LeaderAppendEntries to %d", id)
-		go n.AppendEntriesToSingle(id, req)
 	}
 }
 
 func (n *Node) AppendEntriesToSingle(id int32, req *raft.AppendEntriesRequest) {
 	tries := 0
 	for {
-		if n.State != LEADER {
+		if !n.EnsureStateAndDo(LEADER) {
 			log.Printf("abort LeaderAppendEntriesToSingle, i'm not leader anymore")
 			return
 		}
@@ -65,97 +66,114 @@ func (n *Node) AppendEntriesToSingle(id int32, req *raft.AppendEntriesRequest) {
 		if err != nil {
 			log.Printf("AppendEntries to %d, try no.%d, err: %s", id, tries, err)
 		}
+
 		if resp.GetSuccess() {
 			log.Printf("AppendEntries to %d, try no.%d, success", id, tries)
 			return
 		} else {
 			log.Printf("AppendEntries to %d, try no.%d, fail", id, tries)
-			if resp.GetTerm() >= n.CurrentTerm {
+			n.LockStatus()
+			if resp.GetTerm() > n.CurrentTerm {
 				log.Printf("AppendEntries to %d, try no.%d, target has larger term %d than mine %d",
 					id, tries, resp.GetTerm(), n.CurrentTerm)
-				n.State = FOLLOWER
-				n.CurrentTerm = resp.GetTerm()
+				n.EnterNewTerm(resp.GetTerm(), FOLLOWER, 0, 0)
+				n.UnlockStatus()
 				return
 			}
+			n.UnlockStatus()
 		}
 		tries++
 	}
 }
 
-// todo: this part
-func (n *Node) BeginElection() {
+func (n *Node) BeginElection(term int32) {
 	// vote to myself
-	n.StoreReceivedVotes(1)
-
-	n.RLockStatus()
-	term := n.CurrentTerm
-	n.RUnlockStatus()
+	if !n.EnsureAndDo(term, CANDIDATE, func(node *Node) {
+		node.TransitTo(node.State, 0, 1)
+	}) {
+		return
+	}
 
 	n.CandidateRequestVote(term)
 
-	for {
-		if n.State != CANDIDATE || n.CurrentTerm != term {
-			return
+	select {
+	case r := <-n.ElectionResultChannel:
+		if !r {
+			log.Printf("BeginElection term %d, I losed", term)
+		} else {
+			f := func(node *Node) {
+				node.TransitTo(LEADER, 0, 0)
+			}
+			if n.EnsureAndDo(term, CANDIDATE, f) {
+				log.Printf("BeginElection term %d I win, annouce my leadership", term)
+				n.LeaderAppendEntries()
+			} else {
+				log.Printf("BeginElection inconsistent state, state %d, term %d",
+					n.State, n.CurrentTerm)
+			}
 		}
-
-		//todo: use condition
-		if n.ReceivedVotes >= int32((len(n.Clients)+1)/2+1) {
-			n.State = LEADER
-			n.ReceivedVotes = 0
-			n.LeaderAppendEntries()
-			return
-		}
-		time.Sleep(500 * time.Millisecond)
 	}
 }
 
 func (n *Node) CandidateRequestVote(term int32) {
-	if n.State != CANDIDATE || n.CurrentTerm != term {
+	f := func(node *Node) {
+		req := &raft.RequestVoteRequest{
+			Term:         node.CurrentTerm,
+			CandidateId:  node.ID,
+			LastLogIndex: 0,
+			LastLogTerm:  0,
+		}
+		for id := range node.Clients {
+			log.Printf("CandidateRequestVote to %d", id)
+			go n.RequestVoteToSingle(id, term, req)
+		}
+	}
+	if !n.EnsureAndDo(term, CANDIDATE, f) {
 		log.Printf("abort CandidateRequestVote, inconsistent state, state %d, CurentTerm %d, expected term %d",
 			n.State, n.CurrentTerm, term)
-		n.ReceivedVotes = 0
-		return
-	}
-	req := &raft.RequestVoteRequest{
-		Term:         n.CurrentTerm,
-		CandidateId:  n.ID,
-		LastLogIndex: 0,
-		LastLogTerm:  0,
-	}
-	for id := range n.Clients {
-		log.Printf("CandidateRequestVote to %d", id)
-		go n.RequestVoteToSingle(id, term, req)
 	}
 }
 
 func (n *Node) RequestVoteToSingle(id, term int32, req *raft.RequestVoteRequest) {
 	tries := 0
 	for {
-		if n.State != CANDIDATE || n.CurrentTerm != term {
+		if !n.EnsureAndDo(term, CANDIDATE) {
 			log.Printf("abort CandidateRequestVote, inconsistent state, state %d, CurentTerm %d, expected term %d",
 				n.State, n.CurrentTerm, term)
-			n.ReceivedVotes = 0
 			return
 		}
+
 		log.Printf("RequestVoteToSingle to %d, try no.%d", id, tries)
 		resp, err := n.Clients[id].C.RequestVote(context.TODO(), req)
 		if err != nil {
 			log.Printf("RequestVoteToSingle to %d, try no.%d, err: %s", id, tries, err)
 		}
-		if resp.GetVoteGranted() {
-			log.Printf("RequestVoteToSingle to %d, try no.%d, vote granted", id, tries)
-			n.ReceivedVotes++
-			return
-		} else {
-			log.Printf("RequestVoteToSingle to %d, try no.%d, fail", id, tries)
-			if resp.GetTerm() >= n.CurrentTerm {
-				log.Printf("RequestVoteToSingle to %d, try no.%d, target has larger term %d, my term %d",
-					id, tries, resp.GetTerm(), n.CurrentTerm)
-				n.State = FOLLOWER
-				n.CurrentTerm = resp.GetTerm()
+
+		shouldReturn := false
+		f := func(node *Node) {
+			if resp.GetVoteGranted() {
+				log.Printf("RequestVoteToSingle to %d, try no.%d, vote granted", id, tries)
+				node.TransitTo(node.State, node.VotedFor, node.ReceivedVotes+1)
+				shouldReturn = true
 				return
+			} else {
+				log.Printf("RequestVoteToSingle to %d, try no.%d, fail", id, tries)
+				if resp.GetTerm() > node.CurrentTerm {
+					log.Printf("RequestVoteToSingle to %d, try no.%d, target has larger term %d, my term %d",
+						id, tries, resp.GetTerm(), node.CurrentTerm)
+					node.EnterNewTerm(resp.GetTerm(), FOLLOWER, 0, 0)
+					shouldReturn = true
+					return
+				}
 			}
 		}
+		if !n.EnsureAndDo(term, CANDIDATE, f) {
+			shouldReturn = true
+		}
+		if shouldReturn {
+			return
+		}
+
 		tries++
 	}
 }
@@ -164,7 +182,7 @@ func (n *Node) LeaderHeartbeater() {
 	ticker := time.NewTicker(time.Millisecond * 1500)
 	log.Printf("start LeaderHeartbeater")
 	for range ticker.C {
-		if n.State == LEADER {
+		if n.EnsureStateAndDo(LEADER) {
 			log.Printf("LeaderHeartbeater send heartbeat")
 			n.LeaderAppendEntries()
 		}
