@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"github.com/spf13/cobra"
 	"github.com/tiandi111/raft/config"
 	"github.com/tiandi111/raft/pkg/raft"
@@ -10,6 +11,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 )
@@ -34,6 +36,13 @@ func init() {
 	Command.PersistentFlags().StringVar(&cfgfile, "config", `E:\go\src\github.com\tiandi111\raft\config\config.yaml`, "init config")
 
 	Command.PersistentFlags().Int32Var(&nodeId, "id", 1, "assign node id")
+
+	file := fmt.Sprintf(`node%d_%s.txt`, nodeId, strconv.Itoa(int(time.Now().Unix())))
+	logFile, err := os.OpenFile(file, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0766)
+	if err != nil {
+		panic(err)
+	}
+	log.SetOutput(logFile)
 }
 
 func initconfig() {
@@ -104,15 +113,22 @@ func run() {
 
 	go node.LeaderHeartbeater()
 
-	select {
-	case <-sigc:
-		for _, client := range node.Clients {
-			err := client.Close()
-			if err != nil {
-				log.Printf("close client failed, err : %s", err)
+	for {
+		select {
+		case <-sigc:
+			for _, client := range node.Clients {
+				err := client.Close()
+				if err != nil {
+					log.Printf("close client failed, err : %s", err)
+				}
 			}
+			return
+		case serr := <-errc:
+			log.Fatalf("server err:%s", serr)
+			return
+		default:
+			node.Report()
+			time.Sleep(time.Second)
 		}
-	case serr := <-errc:
-		log.Fatalf("server err:%s", serr)
 	}
 }

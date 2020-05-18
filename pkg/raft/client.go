@@ -90,12 +90,14 @@ func (n *Node) AppendEntriesToSingle(id, term int32, req *raft.AppendEntriesRequ
 		}
 
 		tries++
+		time.Sleep(300 * time.Millisecond)
 	}
 }
 
 func (n *Node) BeginElection(term int32) {
 	// vote to myself
 	if !n.EnsureAndDo(term, CANDIDATE, func(node *Node) {
+		fmt.Printf("BeginElection inconsistent state %d term %d", n.State, n.CurrentTerm)
 		node.VoteFor(node.ID)
 		node.ReceiveVote()
 	}) {
@@ -124,6 +126,7 @@ func (n *Node) BeginElection(term int32) {
 }
 
 func (n *Node) CandidateRequestVote(term int32) {
+	log.Printf("CandidateRequestVote start sending requests")
 	f := func(node *Node) {
 		req := &raft.RequestVoteRequest{
 			Term:         node.CurrentTerm,
@@ -183,6 +186,7 @@ func (n *Node) RequestVoteToSingle(id, term int32, req *raft.RequestVoteRequest)
 		}
 
 		tries++
+		time.Sleep(300 * time.Millisecond)
 	}
 }
 
@@ -190,7 +194,9 @@ func (n *Node) LeaderHeartbeater() {
 	ticker := time.NewTicker(time.Millisecond * 1500)
 	log.Printf("start LeaderHeartbeater")
 	for range ticker.C {
-		log.Printf("LeaderHeartbeater send heartbeat")
-		go n.LeaderAppendEntries(n.CurrentTerm)
+		if n.State == LEADER {
+			log.Printf("LeaderHeartbeater send heartbeat")
+			go n.LeaderAppendEntries(n.CurrentTerm)
+		}
 	}
 }

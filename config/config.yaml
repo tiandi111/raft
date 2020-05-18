@@ -16,16 +16,4 @@
   heartbeat_interval: 1000
   heartbeat_check_interval: 1500
   max_election_timeout: 10000
--
-  id: 4
-  addr: localhost:8004
-  heartbeat_interval: 1000
-  heartbeat_check_interval: 1500
-  max_election_timeout: 10000
--
-  id: 5
-  addr: localhost:8005
-  heartbeat_interval: 1000
-  heartbeat_check_interval: 1500
-  max_election_timeout: 10000
 
