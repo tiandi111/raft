@@ -35,7 +35,7 @@ func (n *Node) InitClient() error {
 	return nil
 }
 
-func (n *Node) LeaderAppendEntries() {
+func (n *Node) LeaderAppendEntries(term int32) {
 	f := func(node *Node) {
 		req := &raft.AppendEntriesRequest{
 			Term:         node.CurrentTerm,
@@ -46,42 +46,49 @@ func (n *Node) LeaderAppendEntries() {
 		}
 		for id := range node.Clients {
 			log.Printf("LeaderAppendEntries to %d", id)
-			go node.AppendEntriesToSingle(id, req)
+			go node.AppendEntriesToSingle(id, node.CurrentTerm, req)
 		}
 	}
-	if !n.EnsureStateAndDo(LEADER, f) {
+	if !n.EnsureAndDo(term, LEADER, f) {
 		log.Printf("abort LeaderAppendEntries, i'm not leader anymore")
 	}
 }
 
-func (n *Node) AppendEntriesToSingle(id int32, req *raft.AppendEntriesRequest) {
+func (n *Node) AppendEntriesToSingle(id, term int32, req *raft.AppendEntriesRequest) {
 	tries := 0
 	for {
-		if !n.EnsureStateAndDo(LEADER) {
+		if !n.EnsureAndDo(term, LEADER) {
 			log.Printf("abort LeaderAppendEntriesToSingle, i'm not leader anymore")
 			return
 		}
+
 		log.Printf("AppendEntries to %d, try no.%d", id, tries)
 		resp, err := n.Clients[id].C.AppendEntries(context.TODO(), req)
 		if err != nil {
 			log.Printf("AppendEntries to %d, try no.%d, err: %s", id, tries, err)
 		}
 
+		shouldReturn := false
 		if resp.GetSuccess() {
 			log.Printf("AppendEntries to %d, try no.%d, success", id, tries)
-			return
+			shouldReturn = true
 		} else {
 			log.Printf("AppendEntries to %d, try no.%d, fail", id, tries)
-			n.LockStatus()
 			if resp.GetTerm() > n.CurrentTerm {
 				log.Printf("AppendEntries to %d, try no.%d, target has larger term %d than mine %d",
 					id, tries, resp.GetTerm(), n.CurrentTerm)
-				n.EnterNewTerm(resp.GetTerm(), FOLLOWER, 0, 0)
-				n.UnlockStatus()
-				return
+				n.DemoteToFollower(resp.GetTerm())
+				shouldReturn = true
 			}
-			n.UnlockStatus()
 		}
+
+		if !n.EnsureAndDo(term, LEADER) {
+			shouldReturn = true
+		}
+		if shouldReturn {
+			return
+		}
+
 		tries++
 	}
 }
@@ -89,7 +96,8 @@ func (n *Node) AppendEntriesToSingle(id int32, req *raft.AppendEntriesRequest) {
 func (n *Node) BeginElection(term int32) {
 	// vote to myself
 	if !n.EnsureAndDo(term, CANDIDATE, func(node *Node) {
-		node.TransitTo(node.State, 0, 1)
+		node.VoteFor(node.ID)
+		node.ReceiveVote()
 	}) {
 		return
 	}
@@ -102,11 +110,11 @@ func (n *Node) BeginElection(term int32) {
 			log.Printf("BeginElection term %d, I losed", term)
 		} else {
 			f := func(node *Node) {
-				node.TransitTo(LEADER, 0, 0)
+				node.PromoteToLeader()
 			}
 			if n.EnsureAndDo(term, CANDIDATE, f) {
 				log.Printf("BeginElection term %d I win, annouce my leadership", term)
-				n.LeaderAppendEntries()
+				n.LeaderAppendEntries(term)
 			} else {
 				log.Printf("BeginElection inconsistent state, state %d, term %d",
 					n.State, n.CurrentTerm)
@@ -153,7 +161,7 @@ func (n *Node) RequestVoteToSingle(id, term int32, req *raft.RequestVoteRequest)
 		f := func(node *Node) {
 			if resp.GetVoteGranted() {
 				log.Printf("RequestVoteToSingle to %d, try no.%d, vote granted", id, tries)
-				node.TransitTo(node.State, node.VotedFor, node.ReceivedVotes+1)
+				node.ReceiveVote()
 				shouldReturn = true
 				return
 			} else {
@@ -161,7 +169,7 @@ func (n *Node) RequestVoteToSingle(id, term int32, req *raft.RequestVoteRequest)
 				if resp.GetTerm() > node.CurrentTerm {
 					log.Printf("RequestVoteToSingle to %d, try no.%d, target has larger term %d, my term %d",
 						id, tries, resp.GetTerm(), node.CurrentTerm)
-					node.EnterNewTerm(resp.GetTerm(), FOLLOWER, 0, 0)
+					node.DemoteToFollower(resp.GetTerm())
 					shouldReturn = true
 					return
 				}
@@ -182,9 +190,7 @@ func (n *Node) LeaderHeartbeater() {
 	ticker := time.NewTicker(time.Millisecond * 1500)
 	log.Printf("start LeaderHeartbeater")
 	for range ticker.C {
-		if n.EnsureStateAndDo(LEADER) {
-			log.Printf("LeaderHeartbeater send heartbeat")
-			n.LeaderAppendEntries()
-		}
+		log.Printf("LeaderHeartbeater send heartbeat")
+		go n.LeaderAppendEntries(n.CurrentTerm)
 	}
 }

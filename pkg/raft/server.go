@@ -13,10 +13,12 @@ func (n *Node) AppendEntries(ctx context.Context, req *raft.AppendEntriesRequest
 	n.LockStatus()
 	defer n.UnlockStatus()
 
-	if req.GetTerm() < n.CurrentTerm {
+	term := n.CurrentTerm
+
+	if req.GetTerm() < term {
 		log.Printf("AppendEntries from %d, term %d is staler than me, term %d", req.GetLeaderId(),
-			req.GetTerm(), n.CurrentTerm)
-		return &raft.AppendEntriesResponse{Term: n.CurrentTerm, Success: false}, nil
+			req.GetTerm(), term)
+		return &raft.AppendEntriesResponse{Term: term, Success: false}, nil
 	}
 
 	//todo: log part
@@ -28,9 +30,9 @@ func (n *Node) AppendEntries(ctx context.Context, req *raft.AppendEntriesRequest
 	defer n.RUnlockHeartbeat()
 	n.LatestHeartbeatAt = time.Now()
 	n.LatestHeartbeatFrom = req.GetLeaderId()
-	n.TransitTo(FOLLOWER, 0, 0)
+	n.DemoteToFollower(req.GetTerm())
 
-	return &raft.AppendEntriesResponse{Term: n.CurrentTerm, Success: true}, nil
+	return &raft.AppendEntriesResponse{Term: term, Success: true}, nil
 }
 
 func (n *Node) RequestVote(ctx context.Context, req *raft.RequestVoteRequest) (*raft.RequestVoteResponse, error) {
@@ -39,39 +41,41 @@ func (n *Node) RequestVote(ctx context.Context, req *raft.RequestVoteRequest) (*
 	n.LockStatus()
 	defer n.UnlockStatus()
 
-	if req.GetTerm() < n.CurrentTerm {
+	term := n.CurrentTerm
+
+	if req.GetTerm() < term {
 		log.Printf("RequestVote from %d, term %d is staler than me, term %d", req.GetCandidateId(),
-			req.GetTerm(), n.CurrentTerm)
-		return &raft.RequestVoteResponse{Term: n.CurrentTerm, VoteGranted: false}, nil
+			req.GetTerm(), term)
+		return &raft.RequestVoteResponse{Term: term, VoteGranted: false}, nil
 	}
 
-	if req.GetTerm() == n.CurrentTerm {
+	if req.GetTerm() == term {
 		if n.State == CANDIDATE || n.State == LEADER {
 			log.Printf("RequestVote from %d, we have the same term %d, reject it", req.GetCandidateId(),
-				n.CurrentTerm)
-			return &raft.RequestVoteResponse{Term: n.CurrentTerm, VoteGranted: false}, nil
+				term)
+			return &raft.RequestVoteResponse{Term: term, VoteGranted: false}, nil
 		}
 	}
 
 	if n.State == FOLLOWER {
 		// 没vote过或者vote给了同样的candidate，则继续vote
 		if n.VotedFor <= 0 || n.VotedFor == req.GetCandidateId() {
-			n.TransitTo(n.State, req.GetCandidateId(), 0)
 			log.Printf("RequestVote from %d, I haven't voted for anyone, so vote for it",
 				req.GetCandidateId())
-			return &raft.RequestVoteResponse{Term: n.CurrentTerm, VoteGranted: true}, nil
+			n.VoteFor(req.GetCandidateId())
+			return &raft.RequestVoteResponse{Term: term, VoteGranted: true}, nil
 		} else {
 			log.Printf("RequestVote from %d, I have voted %d, reject it",
 				req.GetCandidateId(), n.VotedFor)
-			return &raft.RequestVoteResponse{Term: n.CurrentTerm, VoteGranted: false}, nil
+			return &raft.RequestVoteResponse{Term: term, VoteGranted: false}, nil
 		}
 	} else {
 		log.Printf("RequestVote from %d, it has larger term %d than mine %d, I'm FOLLOWER now",
-			req.GetCandidateId(), req.GetTerm(), n.CurrentTerm)
-		n.TransitTo(FOLLOWER, req.GetCandidateId(), 0)
+			req.GetCandidateId(), req.GetTerm(), term)
+		n.DemoteToFollower(req.GetTerm())
 	}
 
-	return &raft.RequestVoteResponse{Term: n.CurrentTerm, VoteGranted: false}, nil
+	return &raft.RequestVoteResponse{Term: term, VoteGranted: false}, nil
 }
 
 func (n *Node) HeartbeatMonitor() {
@@ -83,8 +87,8 @@ func (n *Node) HeartbeatMonitor() {
 		n.RLockHeartbeat()
 
 		if n.State != LEADER && n.LatestHeartbeatAt.Add(n.ElectionTimeout).After(time.Now()) {
-			newTerm := n.CurrentTerm + 1
-			n.EnterNewTerm(newTerm, CANDIDATE, 0, 0)
+			newterm := n.CurrentTerm + 1
+			n.PromoteToCandidate(newterm)
 
 			log.Printf("HeartbeatMonitor election timeout, begin new election phase, term %d",
 				n.CurrentTerm)
@@ -92,10 +96,10 @@ func (n *Node) HeartbeatMonitor() {
 			n.UnlockStatus()
 			n.RUnlockHeartbeat()
 
-			n.BeginElection(newTerm)
+			go n.BeginElection(newterm)
+		} else {
+			n.UnlockStatus()
+			n.RUnlockHeartbeat()
 		}
-
-		n.UnlockStatus()
-		n.RUnlockHeartbeat()
 	}
 }
