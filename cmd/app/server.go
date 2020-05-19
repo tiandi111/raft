@@ -8,6 +8,7 @@ import (
 	graft "github.com/tiandi111/raft/pkg/rpc/raft"
 	"google.golang.org/grpc"
 	"log"
+	"math/rand"
 	"net"
 	"os"
 	"os/signal"
@@ -31,13 +32,15 @@ var (
 )
 
 func init() {
+	rand.Seed(time.Now().Unix())
+
 	cobra.OnInitialize(initconfig)
 
 	Command.PersistentFlags().StringVar(&cfgfile, "config", `E:\go\src\github.com\tiandi111\raft\config\config.yaml`, "init config")
 
 	Command.PersistentFlags().Int32Var(&nodeId, "id", 1, "assign node id")
 
-	file := fmt.Sprintf(`node%d_%s.txt`, nodeId, strconv.Itoa(int(time.Now().Unix())))
+	file := fmt.Sprintf(`log_%s.txt`, strconv.Itoa(int(time.Now().Unix())))
 	logFile, err := os.OpenFile(file, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0766)
 	if err != nil {
 		panic(err)

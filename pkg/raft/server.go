@@ -85,8 +85,7 @@ func (n *Node) HeartbeatMonitor() {
 		n.LockStatus()
 		n.RLockHeartbeat()
 
-		log.Printf("HeartbeatMonitor test")
-		if n.State != LEADER && n.LatestHeartbeatAt.Add(n.ElectionTimeout).After(time.Now()) {
+		if n.State != LEADER && n.LatestHeartbeatAt.Add(n.ElectionTimeout).Before(time.Now()) {
 
 			newterm := n.CurrentTerm + 1
 			n.PromoteToCandidate(newterm)

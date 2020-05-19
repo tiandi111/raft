@@ -209,9 +209,10 @@ func NewNode(config *Config) *Node {
 }
 
 func RandomElectionTimeout(config *Config) time.Duration {
-	et := rand.Int63n(int64(config.MaxElectionTimeout))
-	if et < int64(3*config.HeartbeatInterval) {
-		et = 3 * int64(config.HeartbeatInterval)
-	}
+	max := int64(config.MaxElectionTimeout)
+	et := rand.Int63n(max/2) + max/2
+	//if et < int64(30*config.HeartbeatInterval) {
+	//	et = 30 * int64(config.HeartbeatInterval)
+	//}
 	return time.Duration(et)
 }

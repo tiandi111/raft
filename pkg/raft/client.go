@@ -75,7 +75,7 @@ func (n *Node) AppendEntriesToSingle(id, term int32, req *raft.AppendEntriesRequ
 		} else {
 			log.Printf("AppendEntries to %d, try no.%d, fail", id, tries)
 			if resp.GetTerm() > n.CurrentTerm {
-				log.Printf("AppendEntries to %d, try no.%d, target has larger term %d than mine %d",
+				log.Printf("AppendEntries to %d, try no.%d, target has larger term %d than mine %d, demote to follower",
 					id, tries, resp.GetTerm(), n.CurrentTerm)
 				n.DemoteToFollower(resp.GetTerm())
 				shouldReturn = true
@@ -97,7 +97,7 @@ func (n *Node) AppendEntriesToSingle(id, term int32, req *raft.AppendEntriesRequ
 func (n *Node) BeginElection(term int32) {
 	// vote to myself
 	if !n.EnsureAndDo(term, CANDIDATE, func(node *Node) {
-		fmt.Printf("BeginElection inconsistent state %d term %d", n.State, n.CurrentTerm)
+		log.Printf("BeginElection inconsistent state %d term %d", n.State, n.CurrentTerm)
 		node.VoteFor(node.ID)
 		node.ReceiveVote()
 	}) {
