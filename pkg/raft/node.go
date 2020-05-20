@@ -129,6 +129,7 @@ type Node struct {
 	*Heartbeat
 	Config  *Config
 	Clients map[int32]*Client
+	DoneC   chan struct{}
 }
 
 // similar to compare and swap
@@ -196,6 +197,7 @@ func NewNode(config *Config) *Node {
 		},
 		Config:  config,
 		Clients: map[int32]*Client{},
+		DoneC:   make(chan struct{}),
 	}
 	node.Status.Node = node
 	log.Printf("node config:\n"+

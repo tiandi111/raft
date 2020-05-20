@@ -191,12 +191,16 @@ func (n *Node) RequestVoteToSingle(id, term int32, req *raft.RequestVoteRequest)
 }
 
 func (n *Node) LeaderHeartbeater() {
-	ticker := time.NewTicker(time.Millisecond * 1500)
 	log.Printf("start LeaderHeartbeater")
-	for range ticker.C {
-		if n.State == LEADER {
-			log.Printf("LeaderHeartbeater send heartbeat")
-			go n.LeaderAppendEntries(n.CurrentTerm)
+	for {
+		select {
+		case <-time.After(n.HeartbeatInterval):
+			if n.State == LEADER {
+				log.Printf("LeaderHeartbeater send heartbeat")
+				go n.LeaderAppendEntries(n.CurrentTerm)
+			}
+		case <-n.DoneC:
+			return
 		}
 	}
 }

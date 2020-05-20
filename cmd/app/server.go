@@ -125,6 +125,7 @@ func run() {
 					log.Printf("close client failed, err : %s", err)
 				}
 			}
+			node.DoneC <- struct{}{}
 			return
 		case serr := <-errc:
 			log.Fatalf("server err:%s", serr)

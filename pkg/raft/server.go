@@ -79,27 +79,31 @@ func (n *Node) RequestVote(ctx context.Context, req *raft.RequestVoteRequest) (*
 }
 
 func (n *Node) HeartbeatMonitor() {
-	t := time.NewTicker(n.HeartbeatCheckInterval)
 	log.Printf("start HeartbeatMonitor, check interval %ds", n.HeartbeatCheckInterval/1e9)
-	for range t.C {
-		n.LockStatus()
-		n.RLockHeartbeat()
+	for {
+		select {
+		case <-time.After(n.HeartbeatCheckInterval):
+			n.LockStatus()
+			n.RLockHeartbeat()
 
-		if n.State != LEADER && n.LatestHeartbeatAt.Add(n.ElectionTimeout).Before(time.Now()) {
+			if n.State != LEADER {
 
-			newterm := n.CurrentTerm + 1
-			n.PromoteToCandidate(newterm)
+				newterm := n.CurrentTerm + 1
+				n.PromoteToCandidate(newterm)
 
-			log.Printf("HeartbeatMonitor election timeout, begin new election phase, term %d",
-				n.CurrentTerm)
+				log.Printf("HeartbeatMonitor election timeout, begin new election phase, term %d",
+					n.CurrentTerm)
 
-			n.UnlockStatus()
-			n.RUnlockHeartbeat()
+				n.UnlockStatus()
+				n.RUnlockHeartbeat()
 
-			go n.BeginElection(newterm)
-		} else {
-			n.UnlockStatus()
-			n.RUnlockHeartbeat()
+				go n.BeginElection(newterm)
+			} else {
+				n.UnlockStatus()
+				n.RUnlockHeartbeat()
+			}
+		case <-n.DoneC:
+			return
 		}
 	}
 }
