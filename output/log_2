@@ -1,0 +1,155 @@
+2020/06/06 23:03:53 node config:
+id:[2]
+addr:[localhost:8002]
+heartbeat_interval:[5000000000]
+heartbeat_check_interval:[6000000000]
+max_election_timeout:[20299000000]
+2020/06/06 23:03:53 Reporter term[0] state[FOLLOWER] commitIndex[0] logs[ ]
+2020/06/06 23:03:53 start LeaderHeartbeater
+2020/06/06 23:03:53 start HeartbeatMonitor, check interval 6s
+2020/06/06 23:03:54 Reporter term[0] state[FOLLOWER] commitIndex[0] logs[ ]
+2020/06/06 23:03:55 Reporter term[0] state[FOLLOWER] commitIndex[0] logs[ ]
+2020/06/06 23:03:56 Reporter term[0] state[FOLLOWER] commitIndex[0] logs[ ]
+2020/06/06 23:03:57 Reporter term[0] state[FOLLOWER] commitIndex[0] logs[ ]
+2020/06/06 23:03:58 Reporter term[0] state[FOLLOWER] commitIndex[0] logs[ ]
+2020/06/06 23:03:59 Reporter term[0] state[FOLLOWER] commitIndex[0] logs[ ]
+2020/06/06 23:04:00 Reporter term[0] state[FOLLOWER] commitIndex[0] logs[ ]
+2020/06/06 23:04:01 Reporter term[0] state[FOLLOWER] commitIndex[0] logs[ ]
+2020/06/06 23:04:02 Reporter term[0] state[FOLLOWER] commitIndex[0] logs[ ]
+2020/06/06 23:04:03 Reporter term[0] state[FOLLOWER] commitIndex[0] logs[ ]
+2020/06/06 23:04:04 Reporter term[0] state[FOLLOWER] commitIndex[0] logs[ ]
+2020/06/06 23:04:05 Reporter term[0] state[FOLLOWER] commitIndex[0] logs[ ]
+2020/06/06 23:04:06 Reporter term[0] state[FOLLOWER] commitIndex[0] logs[ ]
+2020/06/06 23:04:07 Reporter term[0] state[FOLLOWER] commitIndex[0] logs[ ]
+2020/06/06 23:04:08 Reporter term[0] state[FOLLOWER] commitIndex[0] logs[ ]
+2020/06/06 23:04:09 Reporter term[0] state[FOLLOWER] commitIndex[0] logs[ ]
+2020/06/06 23:04:10 Reporter term[0] state[FOLLOWER] commitIndex[0] logs[ ]
+2020/06/06 23:04:11 Reporter term[0] state[FOLLOWER] commitIndex[0] logs[ ]
+2020/06/06 23:04:12 Reporter term[0] state[FOLLOWER] commitIndex[0] logs[ ]
+2020/06/06 23:04:13 Reporter term[0] state[FOLLOWER] commitIndex[0] logs[ ]
+2020/06/06 23:04:14 Reporter term[0] state[FOLLOWER] commitIndex[0] logs[ ]
+2020/06/06 23:04:15 Reporter term[0] state[FOLLOWER] commitIndex[0] logs[ ]
+2020/06/06 23:04:16 Reporter term[0] state[FOLLOWER] commitIndex[0] logs[ ]
+2020/06/06 23:04:17 HeartbeatMonitor election timeout, begin new election phase, term 1
+2020/06/06 23:04:17 BeginElection inconsistent state 1 term 1
+2020/06/06 23:04:17 CandidateRequestVote start sending requests
+2020/06/06 23:04:17 CandidateRequestVote to 1
+2020/06/06 23:04:17 CandidateRequestVote to 3
+2020/06/06 23:04:17 RequestVoteToSingle to 3, try no.0
+2020/06/06 23:04:17 RequestVoteToSingle to 1, try no.0
+2020/06/06 23:04:17 RequestVoteToSingle to 1, try no.0, vote granted
+2020/06/06 23:04:17 RequestVoteToSingle to 3, try no.0, vote granted
+2020/06/06 23:04:17 BeginElection term 1 I win, annouce my leadership
+2020/06/06 23:04:17 LeaderAppendEntries to 1
+2020/06/06 23:04:17 LeaderAppendEntries to 3
+2020/06/06 23:04:17 AppendEntriesToSingle to 3, try no.0
+2020/06/06 23:04:17 AppendEntriesToSingle to 1, try no.0
+2020/06/06 23:04:17 AppendEntriesToSingle to 3, try no.0, success
+2020/06/06 23:04:17 AppendEntriesToSingle to 1, try no.0, success
+2020/06/06 23:04:17 Reporter term[1] state[LEADER] commitIndex[0] logs[ ]
+2020/06/06 23:04:18 LeaderHeartbeater heartbeat sent
+2020/06/06 23:04:18 LeaderAppendEntries to 3
+2020/06/06 23:04:18 LeaderAppendEntries to 1
+2020/06/06 23:04:18 AppendEntriesToSingle to 1, try no.0
+2020/06/06 23:04:18 AppendEntriesToSingle to 3, try no.0
+2020/06/06 23:04:18 AppendEntriesToSingle to 1, try no.0, success
+2020/06/06 23:04:18 AppendEntriesToSingle to 3, try no.0, success
+2020/06/06 23:04:18 Reporter term[1] state[LEADER] commitIndex[1] logs[  1]
+2020/06/06 23:04:19 Reporter term[1] state[LEADER] commitIndex[1] logs[  1]
+2020/06/06 23:04:20 Reporter term[1] state[LEADER] commitIndex[1] logs[  1]
+2020/06/06 23:04:21 Reporter term[1] state[LEADER] commitIndex[1] logs[  1]
+2020/06/06 23:04:22 Reporter term[1] state[LEADER] commitIndex[1] logs[  1]
+2020/06/06 23:04:23 LeaderHeartbeater heartbeat sent
+2020/06/06 23:04:23 LeaderAppendEntries to 3
+2020/06/06 23:04:23 LeaderAppendEntries to 1
+2020/06/06 23:04:23 AppendEntriesToSingle to 1, try no.0
+2020/06/06 23:04:23 AppendEntriesToSingle to 3, try no.0
+2020/06/06 23:04:23 AppendEntriesToSingle to 1, try no.0, success
+2020/06/06 23:04:23 AppendEntriesToSingle to 3, try no.0, success
+2020/06/06 23:04:23 Reporter term[1] state[LEADER] commitIndex[2] logs[  1 2]
+2020/06/06 23:04:24 Reporter term[1] state[LEADER] commitIndex[2] logs[  1 2]
+2020/06/06 23:04:25 Reporter term[1] state[LEADER] commitIndex[2] logs[  1 2]
+2020/06/06 23:04:26 Reporter term[1] state[LEADER] commitIndex[2] logs[  1 2]
+2020/06/06 23:04:27 Reporter term[1] state[LEADER] commitIndex[2] logs[  1 2]
+2020/06/06 23:04:28 LeaderHeartbeater heartbeat sent
+2020/06/06 23:04:28 LeaderAppendEntries to 3
+2020/06/06 23:04:28 LeaderAppendEntries to 1
+2020/06/06 23:04:28 AppendEntriesToSingle to 1, try no.0
+2020/06/06 23:04:28 AppendEntriesToSingle to 3, try no.0
+2020/06/06 23:04:28 AppendEntriesToSingle to 3, try no.0, success
+2020/06/06 23:04:28 AppendEntriesToSingle to 1, try no.0, success
+2020/06/06 23:04:28 Reporter term[1] state[LEADER] commitIndex[3] logs[  1 2 3]
+2020/06/06 23:04:29 Reporter term[1] state[LEADER] commitIndex[3] logs[  1 2 3]
+2020/06/06 23:04:30 Reporter term[1] state[LEADER] commitIndex[3] logs[  1 2 3]
+2020/06/06 23:04:31 Reporter term[1] state[LEADER] commitIndex[3] logs[  1 2 3]
+2020/06/06 23:04:32 Reporter term[1] state[LEADER] commitIndex[3] logs[  1 2 3]
+2020/06/06 23:04:33 LeaderHeartbeater heartbeat sent
+2020/06/06 23:04:33 LeaderAppendEntries to 3
+2020/06/06 23:04:33 LeaderAppendEntries to 1
+2020/06/06 23:04:33 AppendEntriesToSingle to 1, try no.0
+2020/06/06 23:04:33 AppendEntriesToSingle to 3, try no.0
+2020/06/06 23:04:33 AppendEntriesToSingle to 3, try no.0, success
+2020/06/06 23:04:33 AppendEntriesToSingle to 1, try no.0, success
+2020/06/06 23:04:33 Reporter term[1] state[LEADER] commitIndex[4] logs[  1 2 3 4]
+2020/06/06 23:04:34 Reporter term[1] state[LEADER] commitIndex[4] logs[  1 2 3 4]
+2020/06/06 23:04:35 Reporter term[1] state[LEADER] commitIndex[4] logs[  1 2 3 4]
+2020/06/06 23:04:36 Reporter term[1] state[LEADER] commitIndex[4] logs[  1 2 3 4]
+2020/06/06 23:04:37 Reporter term[1] state[LEADER] commitIndex[4] logs[  1 2 3 4]
+2020/06/06 23:04:38 LeaderHeartbeater heartbeat sent
+2020/06/06 23:04:38 LeaderAppendEntries to 3
+2020/06/06 23:04:38 LeaderAppendEntries to 1
+2020/06/06 23:04:38 AppendEntriesToSingle to 1, try no.0
+2020/06/06 23:04:38 AppendEntriesToSingle to 3, try no.0
+2020/06/06 23:04:38 AppendEntriesToSingle to 1, try no.0, success
+2020/06/06 23:04:38 AppendEntriesToSingle to 3, try no.0, success
+2020/06/06 23:04:38 Reporter term[1] state[LEADER] commitIndex[5] logs[  1 2 3 4 5]
+2020/06/06 23:04:39 Reporter term[1] state[LEADER] commitIndex[5] logs[  1 2 3 4 5]
+2020/06/06 23:04:40 Reporter term[1] state[LEADER] commitIndex[5] logs[  1 2 3 4 5]
+2020/06/06 23:04:41 Reporter term[1] state[LEADER] commitIndex[5] logs[  1 2 3 4 5]
+2020/06/06 23:04:42 Reporter term[1] state[LEADER] commitIndex[5] logs[  1 2 3 4 5]
+2020/06/06 23:04:43 LeaderHeartbeater heartbeat sent
+2020/06/06 23:04:43 LeaderAppendEntries to 3
+2020/06/06 23:04:43 LeaderAppendEntries to 1
+2020/06/06 23:04:43 AppendEntriesToSingle to 3, try no.0
+2020/06/06 23:04:43 AppendEntriesToSingle to 1, try no.0
+2020/06/06 23:04:43 AppendEntriesToSingle to 3, try no.0, success
+2020/06/06 23:04:43 AppendEntriesToSingle to 1, try no.0, success
+2020/06/06 23:04:43 Reporter term[1] state[LEADER] commitIndex[6] logs[  1 2 3 4 5 6]
+2020/06/06 23:04:44 Reporter term[1] state[LEADER] commitIndex[6] logs[  1 2 3 4 5 6]
+2020/06/06 23:04:45 Reporter term[1] state[LEADER] commitIndex[6] logs[  1 2 3 4 5 6]
+2020/06/06 23:04:46 Reporter term[1] state[LEADER] commitIndex[6] logs[  1 2 3 4 5 6]
+2020/06/06 23:04:47 Reporter term[1] state[LEADER] commitIndex[6] logs[  1 2 3 4 5 6]
+2020/06/06 23:04:48 LeaderHeartbeater heartbeat sent
+2020/06/06 23:04:48 LeaderAppendEntries to 3
+2020/06/06 23:04:48 LeaderAppendEntries to 1
+2020/06/06 23:04:48 AppendEntriesToSingle to 3, try no.0
+2020/06/06 23:04:48 AppendEntriesToSingle to 1, try no.0
+2020/06/06 23:04:48 AppendEntriesToSingle to 1, try no.0, success
+2020/06/06 23:04:48 AppendEntriesToSingle to 3, try no.0, success
+2020/06/06 23:04:48 Reporter term[1] state[LEADER] commitIndex[7] logs[  1 2 3 4 5 6 7]
+2020/06/06 23:04:49 Reporter term[1] state[LEADER] commitIndex[7] logs[  1 2 3 4 5 6 7]
+2020/06/06 23:04:50 Reporter term[1] state[LEADER] commitIndex[7] logs[  1 2 3 4 5 6 7]
+2020/06/06 23:04:51 Reporter term[1] state[LEADER] commitIndex[7] logs[  1 2 3 4 5 6 7]
+2020/06/06 23:04:52 Reporter term[1] state[LEADER] commitIndex[7] logs[  1 2 3 4 5 6 7]
+2020/06/06 23:04:53 LeaderHeartbeater heartbeat sent
+2020/06/06 23:04:53 LeaderAppendEntries to 3
+2020/06/06 23:04:53 LeaderAppendEntries to 1
+2020/06/06 23:04:53 AppendEntriesToSingle to 3, try no.0
+2020/06/06 23:04:53 AppendEntriesToSingle to 1, try no.0
+2020/06/06 23:04:53 AppendEntriesToSingle to 3, try no.0, success
+2020/06/06 23:04:53 AppendEntriesToSingle to 1, try no.0, success
+2020/06/06 23:04:53 Reporter term[1] state[LEADER] commitIndex[8] logs[  1 2 3 4 5 6 7 8]
+2020/06/06 23:04:54 Reporter term[1] state[LEADER] commitIndex[8] logs[  1 2 3 4 5 6 7 8]
+2020/06/06 23:04:55 Reporter term[1] state[LEADER] commitIndex[8] logs[  1 2 3 4 5 6 7 8]
+2020/06/06 23:04:56 Reporter term[1] state[LEADER] commitIndex[8] logs[  1 2 3 4 5 6 7 8]
+2020/06/06 23:04:57 Reporter term[1] state[LEADER] commitIndex[8] logs[  1 2 3 4 5 6 7 8]
+2020/06/06 23:04:58 LeaderHeartbeater heartbeat sent
+2020/06/06 23:04:58 LeaderAppendEntries to 3
+2020/06/06 23:04:58 LeaderAppendEntries to 1
+2020/06/06 23:04:58 AppendEntriesToSingle to 1, try no.0
+2020/06/06 23:04:58 AppendEntriesToSingle to 3, try no.0
+2020/06/06 23:04:58 AppendEntriesToSingle to 3, try no.0, success
+2020/06/06 23:04:58 AppendEntriesToSingle to 1, try no.0, success
+2020/06/06 23:04:58 Reporter term[1] state[LEADER] commitIndex[9] logs[  1 2 3 4 5 6 7 8 9]
+2020/06/06 23:04:59 Reporter term[1] state[LEADER] commitIndex[9] logs[  1 2 3 4 5 6 7 8 9]
+2020/06/06 23:05:00 Reporter term[1] state[LEADER] commitIndex[9] logs[  1 2 3 4 5 6 7 8 9]

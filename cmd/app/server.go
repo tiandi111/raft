@@ -12,7 +12,6 @@ import (
 	"net"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 	"time"
 )
@@ -21,6 +20,7 @@ var (
 	cfg     *raft.Config
 	node    *raft.Node
 	cfgfile string
+	logpath string
 	nodeId  int32
 	Command = &cobra.Command{
 		Use:  "raft",
@@ -34,14 +34,18 @@ var (
 func init() {
 	rand.Seed(time.Now().Unix())
 
-	cobra.OnInitialize(initconfig)
+	cobra.OnInitialize(initlog, initconfig)
 
-	Command.PersistentFlags().StringVar(&cfgfile, "config", `E:\go\src\github.com\tiandi111\raft\config\config.yaml`, "init config")
+	Command.PersistentFlags().StringVar(&cfgfile, "config", `.`, "init config")
 
-	Command.PersistentFlags().Int32Var(&nodeId, "id", 1, "assign node id")
+	Command.PersistentFlags().StringVar(&logpath, "log", `.`, "log path")
 
-	file := fmt.Sprintf(`log_%s.txt`, strconv.Itoa(int(time.Now().Unix())))
-	logFile, err := os.OpenFile(file, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0766)
+	Command.PersistentFlags().Int32Var(&nodeId, "id", 0, "assign node id")
+}
+
+func initlog() {
+	file := fmt.Sprintf(`%slog_%d`, logpath, nodeId)
+	logFile, err := os.OpenFile(file, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0766)
 	if err != nil {
 		panic(err)
 	}

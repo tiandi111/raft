@@ -25,15 +25,29 @@ type Config struct {
 	Others                 map[int32]string
 }
 
+type LogEntry struct {
+	Term    int32
+	Command string
+}
+
 type Status struct {
-	CurrentTerm           int32
-	State                 int32
+	CurrentTerm int32
+	State       int32
+
+	Logs        []*LogEntry
+	CommitIndex int32
+	LastApplied int32
+
+	NextIndex  map[int32]int32
+	MatchIndex map[int32]int32
+
 	VotedFor              int32
 	ReceivedVotes         int32
 	InElection            bool // InElection == !ElectionResultChannel.Closed
 	ElectionResultChannel chan bool
-	Node                  *Node
-	mux                   *sync.Mutex
+
+	Node *Node
+	mux  *sync.Mutex
 }
 
 func (s *Status) LockStatus() {
@@ -73,6 +87,10 @@ func (s *Status) PromoteToLeader() {
 	}
 	s.InElection = false
 	s.ElectionResultChannel = nil
+	for id := range s.NextIndex {
+		s.NextIndex[id] = int32(len(s.Logs))
+		s.MatchIndex[id] = 0
+	}
 }
 
 func (s *Status) DemoteToFollower(term int32) {
@@ -95,6 +113,46 @@ func (s *Status) ReceiveVote() {
 	s.ReceivedVotes += 1
 	if int(s.ReceivedVotes) >= len(s.Node.Clients)/2+1 {
 		s.ElectionResultChannel <- true
+	}
+}
+
+func (s *Status) IsCandidateLogMoreUpToDate(lastLogIndex, lastLogTerm int32) bool {
+	localLastLog := s.GetLastFormalEntry()
+	if localLastLog == nil {
+		return true
+	}
+	if localLastLog.Term > lastLogTerm {
+		return false
+	} else if localLastLog.Term < lastLogTerm {
+		return true
+	} else {
+		return int(lastLogIndex) >= len(s.Logs)-1
+	}
+}
+
+func (s *Status) UpdateCommitIndex(index, term int32) {
+	if index > s.CommitIndex && s.CurrentTerm == term {
+		cnt := 0
+		for _, matchIndex := range s.MatchIndex {
+			if matchIndex >= index {
+				cnt++
+			}
+		}
+		if cnt > (len(s.MatchIndex)+1)/2 {
+			s.CommitIndex = index
+		}
+	}
+}
+
+func (s *Status) GetLastFormalEntry() *raft.LogEntry {
+	if s.Logs == nil || len(s.Logs) == 1 {
+		return nil
+	}
+	lastFormalEntry := s.Logs[len(s.Logs)-1]
+	return &raft.LogEntry{
+		Term:    lastFormalEntry.Term,
+		Index:   int32(len(s.Logs) - 1),
+		Command: lastFormalEntry.Command,
 	}
 }
 
@@ -183,6 +241,11 @@ func NewNode(config *Config) *Node {
 		Status: &Status{
 			CurrentTerm:           0,
 			State:                 FOLLOWER,
+			CommitIndex:           0,
+			LastApplied:           0,
+			Logs:                  make([]*LogEntry, 0),
+			NextIndex:             make(map[int32]int32, 0),
+			MatchIndex:            make(map[int32]int32, 0),
 			VotedFor:              -1,
 			ReceivedVotes:         0,
 			ElectionResultChannel: make(chan bool, 1),
@@ -199,6 +262,7 @@ func NewNode(config *Config) *Node {
 		Clients: map[int32]*Client{},
 		DoneC:   make(chan struct{}),
 	}
+	node.Logs = append(node.Logs, new(LogEntry))
 	node.Status.Node = node
 	log.Printf("node config:\n"+
 		"id:[%d]\n"+
@@ -210,6 +274,7 @@ func NewNode(config *Config) *Node {
 	return node
 }
 
+// Raft randomized election timeout to ensure that split votes are rare and that they are resolved quickly.
 func RandomElectionTimeout(config *Config) time.Duration {
 	max := int64(config.MaxElectionTimeout)
 	et := rand.Int63n(max/2) + max/2

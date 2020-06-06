@@ -1,0 +1,17 @@
+syntax = "proto3";
+package tdb;
+
+service Tdb {
+    rpc ExecCommand(ExecCommandRequest) returns (ExecCommandResponse) {}
+}
+
+message ExecCommandRequest {
+    string command = 1;
+    string operand = 2;
+}
+
+message ExecCommandResponse {
+    bool success = 1;
+    string message = 2;
+    string result = 3;
+}
