@@ -93,6 +93,7 @@ func (n *Node) AppendEntriesToSingle(id, term int32, req raft.AppendEntriesReque
 					shouldReturn = true
 				} else {
 					node.NextIndex[id]--
+					// todo: need to test this
 					log.Printf("AppendEntriesToSingle to %d, try no.%d, target reject, try an earlier entry index %d",
 						id, tries, node.NextIndex[id])
 					if node.NextIndex[id] > 0 {
